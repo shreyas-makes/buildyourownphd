@@ -1,9 +1,7 @@
 module.exports = {
   root: true,
   extends: [
-    "eslint:recommended",
-    "@typescript-eslint/recommended",
-    "prettier"
+    "eslint:recommended"
   ],
   parser: "@typescript-eslint/parser",
   plugins: ["@typescript-eslint"],
@@ -40,6 +38,19 @@ module.exports = {
     "prefer-promise-reject-errors": "error"
   },
   overrides: [
+    {
+      files: ["**/*.ts", "**/*.tsx"],
+      parser: "@typescript-eslint/parser",
+      plugins: ["@typescript-eslint"],
+      rules: {
+        // Disable base ESLint rules that are covered by TypeScript
+        "no-unused-vars": "off",
+        "no-undef": "off",
+        // Enable TypeScript-specific rules
+        "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+        "@typescript-eslint/no-explicit-any": "warn"
+      }
+    },
     {
       files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
       env: {

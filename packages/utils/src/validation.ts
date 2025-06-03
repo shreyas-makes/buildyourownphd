@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ValidationResult, ValidationError as IValidationError } from "./types";
+import { ValidationResult, ValidationIssue } from "./types";
 import { ValidationError, createError } from "./errors";
 
 // Common validation schemas
@@ -114,7 +114,7 @@ export const validateSchema = <T>(
     return schema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const validationErrors: IValidationError[] = error.errors.map(err => ({
+      const validationErrors: ValidationIssue[] = error.errors.map(err => ({
         field: err.path.join("."),
         message: err.message,
         code: err.code,
@@ -139,7 +139,7 @@ export const validateSchemaAsync = async <T>(
     return await schema.parseAsync(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const validationErrors: IValidationError[] = error.errors.map(err => ({
+      const validationErrors: ValidationIssue[] = error.errors.map(err => ({
         field: err.path.join("."),
         message: err.message,
         code: err.code,
@@ -168,7 +168,7 @@ export const safeValidate = <T>(
     };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const validationErrors: IValidationError[] = error.errors.map(err => ({
+      const validationErrors: ValidationIssue[] = error.errors.map(err => ({
         field: err.path.join("."),
         message: err.message,
         code: err.code,

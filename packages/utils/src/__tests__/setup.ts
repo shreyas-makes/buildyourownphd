@@ -3,7 +3,7 @@ import { TextEncoder, TextDecoder } from "util";
 
 // Polyfill for crypto.subtle in Node.js environment
 global.TextEncoder = TextEncoder;
-global.TextDecoder = TextDecoder as any;
+global.TextDecoder = TextDecoder as typeof global.TextDecoder;
 
 // Mock crypto.subtle for tests
 Object.defineProperty(global, "crypto", {

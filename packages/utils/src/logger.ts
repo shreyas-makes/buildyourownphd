@@ -1,73 +1,183 @@
-import winston from "winston";
 import { LogLevel, LogContext } from "./types";
 import { generateRequestId } from "./request-id";
 
-// Log formats
-const developmentFormat = winston.format.combine(
-  winston.format.timestamp(),
-  winston.format.errors({ stack: true }),
-  winston.format.colorize(),
-  winston.format.printf(({ timestamp, level, message, requestId, userId, operation, metadata, stack }) => {
-    let log = `${timestamp} [${level}]`;
-    
-    if (requestId) log += ` [${requestId}]`;
-    if (userId) log += ` [user:${userId}]`;
-    if (operation) log += ` [${operation}]`;
-    
-    log += `: ${message}`;
-    
-    if (metadata && Object.keys(metadata).length > 0) {
-      log += ` ${JSON.stringify(metadata, null, 2)}`;
-    }
-    
-    if (stack) {
-      log += `\n${stack}`;
-    }
-    
-    return log;
-  })
-);
+// Check if we're in a browser environment
+const isBrowser = typeof window !== "undefined";
 
-const productionFormat = winston.format.combine(
-  winston.format.timestamp(),
-  winston.format.errors({ stack: true }),
-  winston.format.json()
-);
+// Browser-compatible logger interface
+interface ILogger {
+  error(data: any): void;
+  warn(data: any): void;
+  info(data: any): void;
+  debug(data: any): void;
+}
 
-// Create logger instance
-const createLogger = () => {
-  const isDevelopment = process.env.NODE_ENV === "development";
-  const logLevel = process.env.LOG_LEVEL || (isDevelopment ? "debug" : "info");
+// Browser logger implementation
+class BrowserLogger implements ILogger {
+  private logLevel: string;
 
-  const transports: winston.transport[] = [
-    new winston.transports.Console({
-      format: isDevelopment ? developmentFormat : productionFormat,
-    }),
-  ];
-
-  // Add file transports in production
-  if (!isDevelopment) {
-    transports.push(
-      new winston.transports.File({
-        filename: "logs/error.log",
-        level: "error",
-        format: productionFormat,
-      }),
-      new winston.transports.File({
-        filename: "logs/combined.log",
-        format: productionFormat,
-      })
-    );
+  constructor() {
+    this.logLevel = (typeof process !== "undefined" && process.env?.LOG_LEVEL) || "info";
   }
 
-  return winston.createLogger({
-    level: logLevel,
-    transports,
-    exitOnError: false,
-  });
-};
+  private shouldLog(level: string): boolean {
+    const levels = ["error", "warn", "info", "debug"];
+    const currentLevelIndex = levels.indexOf(this.logLevel);
+    const messageLevelIndex = levels.indexOf(level);
+    return messageLevelIndex <= currentLevelIndex;
+  }
 
-const logger = createLogger();
+  private formatMessage(level: string, data: any): string {
+    const timestamp = new Date().toISOString();
+    let message = `[${timestamp}] [${level.toUpperCase()}]`;
+    
+    if (data.requestId) message += ` [${data.requestId}]`;
+    if (data.userId) message += ` [user:${data.userId}]`;
+    if (data.operation) message += ` [${data.operation}]`;
+    
+    message += `: ${data.message}`;
+    
+    return message;
+  }
+
+  error(data: any): void {
+    if (!this.shouldLog("error")) return;
+    console.error(this.formatMessage("error", data), data.metadata || {});
+  }
+
+  warn(data: any): void {
+    if (!this.shouldLog("warn")) return;
+    console.warn(this.formatMessage("warn", data), data.metadata || {});
+  }
+
+  info(data: any): void {
+    if (!this.shouldLog("info")) return;
+    console.info(this.formatMessage("info", data), data.metadata || {});
+  }
+
+  debug(data: any): void {
+    if (!this.shouldLog("debug")) return;
+    console.debug(this.formatMessage("debug", data), data.metadata || {});
+  }
+}
+
+// Server logger implementation (lazy-loaded winston)
+class ServerLogger implements ILogger {
+  private winston: any;
+  private logger: any;
+
+  constructor() {
+    this.initializeWinston();
+  }
+
+  private async initializeWinston() {
+    if (!this.winston) {
+      this.winston = await import("winston");
+      this.logger = this.createWinstonLogger();
+    }
+  }
+
+  private createWinstonLogger() {
+    const isDevelopment = process.env.NODE_ENV === "development";
+    const logLevel = process.env.LOG_LEVEL || (isDevelopment ? "debug" : "info");
+
+    const developmentFormat = this.winston.format.combine(
+      this.winston.format.timestamp(),
+      this.winston.format.errors({ stack: true }),
+      this.winston.format.colorize(),
+      this.winston.format.printf(({ timestamp, level, message, requestId, userId, operation, metadata, stack }: any) => {
+        let log = `${timestamp} [${level}]`;
+        
+        if (requestId) log += ` [${requestId}]`;
+        if (userId) log += ` [user:${userId}]`;
+        if (operation) log += ` [${operation}]`;
+        
+        log += `: ${message}`;
+        
+        if (metadata && Object.keys(metadata).length > 0) {
+          log += ` ${JSON.stringify(metadata, null, 2)}`;
+        }
+        
+        if (stack) {
+          log += `\n${stack}`;
+        }
+        
+        return log;
+      })
+    );
+
+    const productionFormat = this.winston.format.combine(
+      this.winston.format.timestamp(),
+      this.winston.format.errors({ stack: true }),
+      this.winston.format.json()
+    );
+
+    const transports: any[] = [
+      new this.winston.transports.Console({
+        format: isDevelopment ? developmentFormat : productionFormat,
+      }),
+    ];
+
+    // Add file transports in production
+    if (!isDevelopment) {
+      transports.push(
+        new this.winston.transports.File({
+          filename: "logs/error.log",
+          level: "error",
+          format: productionFormat,
+        }),
+        new this.winston.transports.File({
+          filename: "logs/combined.log",
+          format: productionFormat,
+        })
+      );
+    }
+
+    return this.winston.createLogger({
+      level: logLevel,
+      transports,
+      exitOnError: false,
+    });
+  }
+
+  async error(data: any): Promise<void> {
+    await this.initializeWinston();
+    this.logger.error(data);
+  }
+
+  async warn(data: any): Promise<void> {
+    await this.initializeWinston();
+    this.logger.warn(data);
+  }
+
+  async info(data: any): Promise<void> {
+    await this.initializeWinston();
+    this.logger.info(data);
+  }
+
+  async debug(data: any): Promise<void> {
+    await this.initializeWinston();
+    this.logger.debug(data);
+  }
+
+}
+
+// Browser logger with close method
+class BrowserLoggerWithClose extends BrowserLogger {
+  async close(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
+// Server logger with close method  
+class ServerLoggerWithClose extends ServerLogger {
+  async close(): Promise<void> {
+    return Promise.resolve(); // Simplified for now
+  }
+}
+
+// Create appropriate logger based on environment
+const logger: ILogger = isBrowser ? new BrowserLoggerWithClose() : new ServerLoggerWithClose();
 
 // Logger class with context support
 export class Logger {
@@ -309,9 +419,12 @@ export const performanceLogger = {
 
 // Cleanup function for graceful shutdown
 export const closeLogger = async (): Promise<void> => {
-  return new Promise((resolve) => {
-    logger.end(() => {
-      resolve();
-    });
-  });
+  // For browser logger, there's nothing to close
+  if (isBrowser) {
+    return Promise.resolve();
+  }
+  
+  // For server logger, close winston if it exists
+  const serverLogger = logger as ServerLoggerWithClose;
+  return serverLogger.close();
 }; 

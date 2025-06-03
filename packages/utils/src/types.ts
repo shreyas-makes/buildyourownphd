@@ -184,7 +184,7 @@ export interface AppConfig {
 }
 
 // Validation types
-export interface ValidationError {
+export interface ValidationIssue {
   field: string;
   message: string;
   code: string;
@@ -192,7 +192,7 @@ export interface ValidationError {
 
 export interface ValidationResult {
   isValid: boolean;
-  errors: ValidationError[];
+  errors: ValidationIssue[];
 }
 
 // Log types
