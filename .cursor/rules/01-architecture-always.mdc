@@ -1,0 +1,92 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Rails Architecture & Speedrail Conventions (Always Apply)
+
+## Project Overview
+This is a Rails 8 application built using the Speedrail template for buildyourownphd.com - a learning platform with AI-powered content processing, gamification, and spaced repetition.
+
+## Core Architecture Principles
+
+### Speedrail Authentication (Devise)
+- **Authentication**: Uses Devise gem (Speedrail default, NOT Rails 8 built-in)
+  - `current_user` helper method
+  - `user_signed_in?` helper method  
+  - `authenticate_user!` before_action for protection
+  - User model includes `:database_authenticatable, :registerable, :recoverable, :rememberable, :validatable`
+- **Database**: PostgreSQL with standard ActiveRecord patterns
+- **Background Jobs**: Delayed Job (Speedrail default, configured in [Gemfile](mdc:Gemfile))
+  - Use `delay` method on objects: `object.delay.method_name`
+  - Jobs stored in database, not Redis
+
+### Speedrail Features & Patterns
+- **Admin Panel**: Uses Active Admin gem (Speedrail default)
+  - Admin resources in `app/admin/` directory
+  - DSL-based configuration like [app/admin/users.rb](mdc:app/admin/users.rb)
+  - Authentication via `authenticate_admin!` method
+- **Blog CMS**: Rich text blog with embedded content
+- **Payments**: Stripe Checkout embedded portal
+- **A/B Testing**: Split gem for feature testing
+- **SEO**: Metamagic gem for meta tags
+- **Asset Storage**: Active Storage for user uploads
+  - External storage (S3/equivalent) for production
+  - CORS setup required for external storage
+
+### Frontend Stack (Speedrail Defaults)
+- **Styling**: Tailwind CSS + Flowbite components
+- **Interactivity**: Hotwire (Turbo + Stimulus) - NO heavy JavaScript frameworks
+- **Design System**: Flowbite + Tailwind UI components
+- **Real-time**: Turbo Streams for live updates
+- **Testing**: RSpec for comprehensive testing suite
+
+### Directory Structure Conventions
+```
+app/
+├── admin/              # Active Admin resources
+├── controllers/        # Standard Rails controllers  
+├── jobs/              # Background job classes (Delayed Job)
+├── models/            # ActiveRecord models
+├── services/          # Business logic (PORO classes)
+├── views/             # ERB templates
+└── mailers/           # Email templates
+```
+
+### Key Models & Relationships (Learning Platform)
+- **User**: Central model with admin flag and Devise authentication
+  - `has_many :contents`
+  - `has_one :gamification_profile`
+- **Content**: User-submitted learning material (URLs or text)
+  - `belongs_to :user`
+  - `has_many :content_chunks`
+- **ContentChunk**: AI-processed text segments with TTS audio
+  - `belongs_to :content`
+  - `has_one_attached :audio`
+- **GamificationProfile**: XP, achievements, and learning streaks
+  - `belongs_to :user`
+
+### Background Processing (Delayed Job)
+- All AI processing happens in background jobs using Delayed Job
+- Use `.delay` method: `MyService.delay.process_content(content_id)`
+- Jobs should have proper error handling and status updates
+- Database-based queue (no Redis required)
+
+### API Integrations
+- OpenAI for content chunking and quiz generation
+- ElevenLabs for text-to-speech
+- Stripe for payment processing
+- Service objects in `app/services/ai/` for external APIs
+
+### Testing Strategy (RSpec)
+- Model specs for validations and associations
+- Controller specs for authentication and authorization
+- System specs with Capybara for full workflows
+- Service specs with mocked external APIs
+
+## File References
+- Main routes: [config/routes.rb](mdc:config/routes.rb)
+- Application controller: [app/controllers/application_controller.rb](mdc:app/controllers/application_controller.rb)
+- User model: [app/models/user.rb](mdc:app/models/user.rb)
+- Gemfile dependencies: [Gemfile](mdc:Gemfile)
+- Devise configuration: [config/initializers/devise.rb](mdc:config/initializers/devise.rb)

@@ -1,0 +1,181 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Learning Content Pipeline (Manual Apply)
+
+## Content Processing Flow
+
+### Content Lifecycle
+1. **Submission** → User submits URL or text via dashboard form
+2. **Processing** → Background job extracts/chunks content with AI
+3. **Audio Generation** → TTS jobs create audio for each chunk  
+4. **Ready** → Content available for learning with dual coding
+
+### Core Models & Relationships
+```ruby
+# app/models/content.rb
+class Content < ApplicationRecord
+  belongs_to :user
+  has_many :content_chunks, dependent: :destroy
+  
+  # Status: 'pending', 'processing', 'ready', 'error'
+  enum status: { pending: 'pending', processing: 'processing', ready: 'ready', error: 'error' }
+  
+  # Turbo Stream broadcasts for real-time updates
+  broadcasts_to ->(content) { [content.user, "contents"] }, inserts_by: :prepend
+end
+
+# app/models/content_chunk.rb  
+class ContentChunk < ApplicationRecord
+  belongs_to :content
+  has_one_attached :audio  # TTS audio file via Active Storage
+  
+  scope :ordered, -> { order(:chunk_number) }
+end
+```
+
+### URL Content Extraction
+```ruby
+# app/services/url_content_extractor.rb
+class UrlContentExtractor
+  def self.extract(url)
+    ArticleExtractor.extract(url).content
+  rescue StandardError => e
+    Rails.logger.error "Failed to extract content from #{url}: #{e.message}"
+    nil
+  end
+end
+```
+
+### Chunking Strategy
+Content is broken into 5-15 minute reading segments using OpenAI:
+- Natural conceptual boundaries preserved
+- Optimal cognitive load per chunk
+- Sequential numbering for navigation
+
+### Dual Coding Implementation
+Each chunk supports both visual and auditory learning:
+- **Visual**: Rendered HTML with Tailwind styling
+- **Auditory**: High-quality TTS audio via ElevenLabs
+- **Synchronized**: Stimulus controller manages both modes
+
+## Frontend Learning Experience
+
+### Chunk Viewer Component ([app/components/learning/chunk_viewer_component.rb](mdc:app/components/learning/chunk_viewer_component.rb))
+```ruby
+class Learning::ChunkViewerComponent < ViewComponent::Base
+  def initialize(chunks:)
+    @chunks = chunks
+  end
+  
+  private
+  
+  attr_reader :chunks
+end
+```
+
+### Stimulus Navigation Controller
+```javascript
+// app/javascript/controllers/chunk_viewer_controller.js
+export default class extends Controller {
+  static targets = ["chunk", "previousButton", "nextButton", "progress", "audio"]
+
+  next() {
+    if (this.index < this.chunkTargets.length - 1) {
+      this.index++
+      this.showCurrentChunk()
+      this.loadAudio()
+    }
+  }
+  
+  showCurrentChunk() {
+    // Hide all chunks except current
+    // Update progress indicator
+    // Manage button states
+  }
+}
+```
+
+### Real-time Updates with Turbo Streams
+Content list updates automatically as processing completes:
+```erb
+<%# In dashboard view %>
+<%= turbo_stream_from Current.user, "contents" %>
+
+<div id="contents">
+  <%= render @contents %>
+</div>
+```
+
+## Background Job Architecture
+
+### Primary Processing Job
+```ruby
+# app/jobs/content_processing_job.rb
+class ContentProcessingJob < ApplicationJob
+  queue_as :default
+  
+  def perform(content_id)
+    content = Content.find(content_id)
+    content.update!(status: 'processing')
+    
+    # 1. Extract text (URL or direct text)
+    text = get_text_for(content)
+    return handle_error(content, 'Failed to retrieve text') if text.blank?
+    
+    # 2. AI chunking
+    chunks = Ai::Chunker.new.segment(text)
+    return handle_error(content, 'Failed to chunk text') if chunks.empty?
+    
+    # 3. Save chunks in transaction
+    saved_chunks = save_chunks(content, chunks)
+    
+    # 4. Enqueue TTS jobs
+    saved_chunks.each { |chunk| TtsGenerationJob.perform_later(chunk.id) }
+    
+    content.update!(status: 'ready')
+  end
+end
+```
+
+### TTS Generation Job
+```ruby
+# app/jobs/tts_generation_job.rb  
+class TtsGenerationJob < ApplicationJob
+  queue_as :low_priority
+  
+  def perform(chunk_id)
+    chunk = ContentChunk.find(chunk_id)
+    
+    audio_stream = Ai::Tts.new.generate(chunk.text)
+    return if audio_stream.nil?
+    
+    chunk.audio.attach(
+      io: StringIO.new(audio_stream),
+      filename: "#{chunk.id}.mp3", 
+      content_type: "audio/mpeg"
+    )
+  end
+end
+```
+
+## Learning Interface Patterns
+
+### Content Viewer ([app/views/contents/show.html.erb](mdc:app/views/contents/show.html.erb))
+- Single chunk display with navigation
+- Progress indicator (e.g., "Chunk 3 of 10")
+- Audio playback controls
+- Responsive design with Tailwind CSS
+
+### Dashboard Integration ([app/views/dashboard/index.html.erb](mdc:app/views/dashboard/index.html.erb))
+- Content submission form
+- Status tracking with Turbo Stream updates
+- Quick access to processed content
+
+## File References
+- Content controller: [app/controllers/contents_controller.rb](mdc:app/controllers/contents_controller.rb)
+- Dashboard controller: [app/controllers/dashboard_controller.rb](mdc:app/controllers/dashboard_controller.rb)
+- Content model: [app/models/content.rb](mdc:app/models/content.rb)
+- Chunk model: [app/models/content_chunk.rb](mdc:app/models/content_chunk.rb)

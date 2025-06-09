@@ -1,0 +1,295 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Gamification & Learning Analytics (Manual Apply)
+
+## Gamification System Architecture
+
+### Core Models
+```ruby
+# app/models/gamification_profile.rb
+class GamificationProfile < ApplicationRecord
+  belongs_to :user
+  has_many :achievements
+  has_many :learning_sessions
+  
+  # XP and level calculations
+  def current_level
+    Math.sqrt(total_xp / 100).floor + 1
+  end
+  
+  def xp_for_next_level
+    ((current_level) ** 2) * 100
+  end
+end
+
+# app/models/achievement.rb  
+class Achievement < ApplicationRecord
+  belongs_to :gamification_profile
+  
+  # Achievement types: 'streak', 'milestone', 'mastery', 'social'
+  enum achievement_type: { streak: 'streak', milestone: 'milestone', mastery: 'mastery', social: 'social' }
+end
+
+# app/models/learning_session.rb
+class LearningSession < ApplicationRecord
+  belongs_to :user
+  belongs_to :content
+  has_many :interaction_events
+  
+  # Track session metrics
+  def completion_rate
+    return 0 if total_chunks.zero?
+    (chunks_completed.to_f / total_chunks * 100).round(2)
+  end
+end
+```
+
+### XP Calculation Engine
+```ruby
+# app/services/gamification_service.rb
+class GamificationService
+  BASE_XP = {
+    content_completion: 10,
+    quiz_completion: 15,
+    streak_maintenance: 5,
+    concept_mastery: 25
+  }.freeze
+
+  def self.award_xp(user, activity_type, performance_data = {})
+    profile = user.gamification_profile || user.create_gamification_profile
+    
+    base_xp = BASE_XP[activity_type]
+    multiplier = calculate_multiplier(performance_data)
+    streak_bonus = calculate_streak_bonus(profile)
+    
+    total_xp = (base_xp * multiplier + streak_bonus).round
+    
+    profile.increment!(:total_xp, total_xp)
+    check_for_achievements(profile, activity_type, total_xp)
+    
+    # Broadcast XP gain via Turbo Stream
+    broadcast_xp_update(user, total_xp)
+  end
+  
+  private
+  
+  def self.calculate_multiplier(data)
+    difficulty = data[:difficulty] || 1.0
+    accuracy = data[:accuracy] || 1.0
+    [difficulty * accuracy, 0.5].max # Minimum 0.5x multiplier
+  end
+end
+```
+
+### Achievement System
+```ruby
+# app/services/achievement_checker.rb
+class AchievementChecker
+  ACHIEVEMENTS = {
+    first_content: { name: "First Steps", description: "Complete your first content", xp_threshold: 10 },
+    week_warrior: { name: "Week Warrior", description: "Learn 7 days in a row", streak_threshold: 7 },
+    knowledge_seeker: { name: "Knowledge Seeker", description: "Complete 10 pieces of content", content_threshold: 10 },
+    quiz_master: { name: "Quiz Master", description: "Score 90%+ on 5 quizzes", quiz_accuracy: 0.9, quiz_count: 5 }
+  }.freeze
+  
+  def self.check_achievements(profile, activity_type, context = {})
+    ACHIEVEMENTS.each do |key, criteria|
+      next if profile.achievements.exists?(achievement_key: key)
+      
+      if meets_criteria?(profile, criteria, context)
+        award_achievement(profile, key, criteria)
+      end
+    end
+  end
+end
+```
+
+## Spaced Repetition System (SRS)
+
+### SRS Model
+```ruby
+# app/models/spaced_repetition_card.rb
+class SpacedRepetitionCard < ApplicationRecord
+  belongs_to :content_chunk
+  belongs_to :user
+  
+  # SM-2 Algorithm implementation
+  def calculate_next_review(quality)
+    if quality < 3
+      # Failed review - reset interval
+      self.interval = 1
+      self.repetitions = 0
+    else
+      # Successful review
+      case repetitions
+      when 0
+        self.interval = 1
+      when 1  
+        self.interval = 6
+      else
+        self.interval = (interval * ease_factor).round
+      end
+      
+      self.repetitions += 1
+    end
+    
+    # Update ease factor based on quality (0-5 scale)
+    self.ease_factor = [1.3, ease_factor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))].max
+    self.due_at = interval.days.from_now
+    
+    save!
+  end
+end
+```
+
+### SRS Background Jobs
+```ruby
+# app/jobs/srs_card_generation_job.rb
+class SrsCardGenerationJob < ApplicationJob
+  def perform(content_id)
+    content = Content.find(content_id)
+    
+    content.content_chunks.each do |chunk|
+      SpacedRepetitionCard.create!(
+        content_chunk: chunk,
+        user: content.user,
+        interval: 1,
+        repetitions: 0,
+        ease_factor: 2.5,
+        due_at: 1.day.from_now
+      )
+    end
+  end
+end
+```
+
+## Learning Analytics & Tracking
+
+### Analytics Models
+```ruby
+# app/models/interaction_event.rb
+class InteractionEvent < ApplicationRecord
+  belongs_to :learning_session
+  
+  # Event types: 'chunk_start', 'chunk_complete', 'audio_play', 'quiz_attempt'
+  enum event_type: { 
+    chunk_start: 'chunk_start',
+    chunk_complete: 'chunk_complete', 
+    audio_play: 'audio_play',
+    quiz_attempt: 'quiz_attempt'
+  }
+  
+  # Track detailed interaction data
+  # JSON column for flexible event data storage
+end
+
+# app/models/retention_metric.rb
+class RetentionMetric < ApplicationRecord
+  belongs_to :user
+  belongs_to :content
+  
+  # Track 24h, 7d, 30d retention rates
+  def calculate_retention_score
+    events = InteractionEvent.joins(:learning_session)
+                           .where(learning_sessions: { user: user, content: content })
+    
+    # Complex retention calculation based on review performance
+  end
+end
+```
+
+### Real-time Analytics Dashboard
+```ruby
+# app/components/analytics/dashboard_component.rb
+class Analytics::DashboardComponent < ViewComponent::Base
+  def initialize(user:)
+    @user = user
+    @profile = user.gamification_profile || user.create_gamification_profile
+  end
+  
+  private
+  
+  def learning_streak
+    # Calculate current streak
+  end
+  
+  def weekly_progress
+    # Weekly XP and content completion
+  end
+  
+  def retention_heatmap_data
+    # Data for retention visualization
+  end
+end
+```
+
+## Frontend Gamification UI
+
+### Progress Visualization
+```javascript
+// app/javascript/controllers/progress_ring_controller.js
+export default class extends Controller {
+  static values = { progress: Number, total: Number }
+  
+  connect() {
+    this.updateProgressRing()
+  }
+  
+  updateProgressRing() {
+    const percentage = (this.progressValue / this.totalValue) * 100
+    const circumference = 2 * Math.PI * 45 // radius = 45
+    const strokeDashoffset = circumference - (percentage / 100) * circumference
+    
+    this.element.querySelector('.progress-circle').style.strokeDashoffset = strokeDashoffset
+  }
+}
+```
+
+### Achievement Notifications
+```erb
+<%# app/views/shared/_achievement_notification.html.erb %>
+<div data-controller="notification" 
+     data-notification-auto-dismiss-value="true"
+     class="achievement-popup">
+  <div class="flex items-center space-x-4">
+    <div class="achievement-icon">🏆</div>
+    <div>
+      <h3 class="font-bold text-yellow-600"><%= achievement.name %></h3>
+      <p class="text-sm text-gray-600"><%= achievement.description %></p>
+    </div>
+  </div>
+</div>
+```
+
+## Integration Points
+
+### Controller Integration
+```ruby
+# In any learning-related controller action
+after_action :track_learning_activity, only: [:complete_chunk, :submit_quiz]
+
+private
+
+def track_learning_activity
+  GamificationService.award_xp(Current.user, action_name.to_sym, performance_data)
+end
+```
+
+### Turbo Stream Updates
+```erb
+<%# Real-time XP updates %>
+<%= turbo_stream.replace "user-xp" do %>
+  <span class="xp-counter" data-controller="counter-animation">
+    <%= Current.user.gamification_profile.total_xp %> XP
+  </span>
+<% end %>
+```
+
+## File References
+- Gamification service: [app/services/gamification_service.rb](mdc:app/services/gamification_service.rb)
+- Achievement checker: [app/services/achievement_checker.rb](mdc:app/services/achievement_checker.rb)
+- Analytics dashboard: [app/components/analytics/dashboard_component.rb](mdc:app/components/analytics/dashboard_component.rb)
+- SRS model: [app/models/spaced_repetition_card.rb](mdc:app/models/spaced_repetition_card.rb)

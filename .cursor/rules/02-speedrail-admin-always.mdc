@@ -1,0 +1,88 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Speedrail Active Admin Conventions (Always Apply)
+
+## Active Admin DSL Patterns
+
+### Resource Configuration
+Active Admin uses a Domain Specific Language (DSL) for admin panel configuration. All admin resources are in `app/admin/` directory.
+
+### Common DSL Structure
+```ruby
+ActiveAdmin.register ModelName do
+  menu priority: 1  # Navigation order
+  
+  # Security - what attributes can be modified
+  permit_params :attr1, :attr2, :attr3
+  
+  # Available actions (create, read, update, delete)
+  actions :all, except: [:destroy]
+  # OR specific actions: actions :index, :show, :new, :create
+  
+  # Sidebar filters
+  filter :email
+  filter :admin
+  filter :created_at
+  
+  # Customize index table
+  index do
+    column :attribute_name
+    column 'Custom Column' do |record|
+      record.custom_method
+    end
+    actions  # Show/Edit/Delete links
+  end
+  
+  # Customize show page
+  show do
+    attributes_table_for(resource) do
+      column :attribute_name
+    end
+  end
+end
+```
+
+### Admin Authentication
+- Users need `admin: true` flag to access `/admin`
+- Set via Rails console: `User.last.update(admin: true)`
+- Authentication method: `authenticate_admin!` in [config/initializers/active_admin.rb](mdc:config/initializers/active_admin.rb)
+
+### Custom Pages (Non-table backed)
+Generate with: `rails g active_admin:page PageName`
+
+Custom content uses Ruby-style HTML generation:
+```ruby
+content do
+  div class: 'mb-2' do
+    h2 'User Count:', class: 'text-lg' do
+      span User.count
+    end
+  end
+end
+```
+
+### Custom Functions in Admin
+Add custom actions using member/collection actions:
+```ruby
+member_action :reset, method: :patch do
+  resource.reset!
+  redirect_to admin_resource_path(resource), notice: 'Reset successful'
+end
+```
+
+### Ransackable Attributes
+When adding filters, you may need to whitelist attributes in the model:
+```ruby
+# In your model
+def self.ransackable_attributes(*)
+  ["id", "email", "admin", "created_at", "updated_at"]
+end
+```
+
+## File References
+- Active Admin config: [config/initializers/active_admin.rb](mdc:config/initializers/active_admin.rb)
+- Admin dashboard: [app/admin/dashboard.rb](mdc:app/admin/dashboard.rb)
+- Example admin resource: [app/admin/users.rb](mdc:app/admin/users.rb)

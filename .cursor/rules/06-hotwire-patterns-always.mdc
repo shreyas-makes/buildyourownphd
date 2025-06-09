@@ -1,0 +1,248 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Hotwire Patterns & Real-time Features (Always Apply)
+
+## Hotwire Stack Overview
+This project uses Hotwire (Turbo + Stimulus) for modern, fast, and interactive user experiences without heavy JavaScript frameworks.
+
+## Turbo Drive (Default)
+- **Page Navigation**: Automatic AJAX navigation between pages
+- **Form Submission**: Forms submit via AJAX by default
+- **Browser History**: Maintains proper back/forward button behavior
+- **No Configuration**: Works automatically for standard Rails links and forms
+
+## Turbo Frames
+Use for independent page sections that can update without full page reload:
+
+```erb
+<%# Wrap content that should update independently %>
+<turbo-frame id="content-list">
+  <%= render @contents %>
+</turbo-frame>
+
+<%# Links/forms within frame automatically target the frame %>
+<%= link_to "Load More", contents_path, data: { turbo_frame: "content-list" } %>
+```
+
+### Frame Patterns
+- **Lazy Loading**: `<turbo-frame id="stats" src="/dashboard/stats">`
+- **Modal Frames**: `<turbo-frame id="modal">` for popup content
+- **Inline Editing**: Frame around editable content
+
+## Turbo Streams (Real-time Updates)
+Use for live updates pushed from server to client:
+
+### Broadcast Setup in Models
+```ruby
+# app/models/content.rb
+class Content < ApplicationRecord
+  # Broadcasts to user's personal stream when content changes
+  broadcasts_to ->(content) { [content.user, "contents"] }, inserts_by: :prepend
+end
+```
+
+### Subscribe in Views
+```erb
+<%# Subscribe to real-time updates %>
+<%= turbo_stream_from Current.user, "contents" %>
+
+<div id="contents">
+  <%= render @contents %>
+</div>
+```
+
+### Manual Stream Actions
+```ruby
+# In controllers or jobs
+Turbo::StreamsChannel.broadcast_replace_to(
+  [user, "notifications"],
+  target: "notification-count",
+  partial: "shared/notification_count",
+  locals: { count: user.unread_notifications.count }
+)
+```
+
+### Common Stream Actions
+- `broadcast_append_to` / `broadcast_prepend_to` - Add items to lists
+- `broadcast_replace_to` - Update existing elements
+- `broadcast_remove_to` - Remove elements
+- `broadcast_update_to` - Update element content
+
+## Stimulus Controllers
+JavaScript controllers for interactive behavior:
+
+### File Structure
+```
+app/javascript/controllers/
+├── application.js           # Stimulus application setup
+├── chunk_viewer_controller.js   # Learning content navigation
+├── form_visibility_controller.js # Show/hide form fields
+├── progress_ring_controller.js   # Gamification progress display
+└── notification_controller.js    # Toast notifications
+```
+
+### Controller Pattern
+```javascript
+// app/javascript/controllers/example_controller.js
+import { Controller } from "@hotwired/stimulus"
+
+export default class extends Controller {
+  // Define elements this controller can target
+  static targets = ["input", "output", "button"]
+  
+  // Define configurable values from HTML data attributes
+  static values = { 
+    url: String, 
+    count: Number,
+    enabled: Boolean 
+  }
+  
+  // Lifecycle callbacks
+  connect() {
+    // Called when controller connects to DOM
+  }
+  
+  disconnect() {
+    // Called when controller disconnects
+  }
+  
+  // Action methods (called from HTML data-action)
+  submit(event) {
+    event.preventDefault()
+    // Handle form submission
+  }
+  
+  toggle() {
+    this.buttonTarget.disabled = !this.buttonTarget.disabled
+  }
+}
+```
+
+### HTML Integration
+```erb
+<%# Connect controller to element %>
+<div data-controller="example" 
+     data-example-url-value="<%= api_endpoint %>"
+     data-example-count-value="5">
+  
+  <%# Define targets %>
+  <input data-example-target="input" type="text">
+  <button data-example-target="button" 
+          data-action="click->example#submit">Submit</button>
+  
+  <div data-example-target="output"></div>
+</div>
+```
+
+## Real-time Learning Features
+
+### Content Processing Updates
+```ruby
+# app/jobs/content_processing_job.rb
+def perform(content_id)
+  content = Content.find(content_id)
+  
+  # Update status via Turbo Stream
+  content.update!(status: 'processing')
+  
+  # Process content...
+  
+  content.update!(status: 'ready')
+  # Turbo Stream automatically broadcasts the update
+end
+```
+
+### Progress Tracking
+```erb
+<%# Real-time XP updates %>
+<div id="user-xp" data-controller="counter-animation">
+  <%= Current.user.gamification_profile.total_xp %> XP
+</div>
+
+<%# In service/job when XP changes %>
+<%= turbo_stream.replace "user-xp" do %>
+  <div id="user-xp" data-controller="counter-animation">
+    <%= user.gamification_profile.total_xp %> XP
+  </div>
+<% end %>
+```
+
+### Learning Session Updates
+```javascript
+// app/javascript/controllers/learning_session_controller.js
+export default class extends Controller {
+  static targets = ["progress", "timer"]
+  static values = { sessionId: Number }
+  
+  connect() {
+    this.startTimer()
+  }
+  
+  completeChunk() {
+    fetch(`/learning_sessions/${this.sessionIdValue}/complete_chunk`, {
+      method: 'PATCH',
+      headers: { 'X-CSRF-Token': this.csrfToken }
+    })
+    // Turbo Stream response will update progress automatically
+  }
+}
+```
+
+## Common Patterns
+
+### Form with Dynamic Fields
+```erb
+<%= form_with model: @content, data: { controller: "form-visibility" } do |f| %>
+  <%= f.select :content_type, ["URL", "Text"], 
+               { data: { action: "change->form-visibility#toggle" } } %>
+  
+  <div data-form-visibility-target="urlField">
+    <%= f.url_field :raw_content %>
+  </div>
+  
+  <div data-form-visibility-target="textField" hidden>
+    <%= f.text_area :raw_content %>
+  </div>
+<% end %>
+```
+
+### Modal with Turbo Frame
+```erb
+<%# Modal trigger %>
+<%= link_to "Edit Profile", edit_profile_path, 
+            data: { turbo_frame: "modal" } %>
+
+<%# Modal container %>
+<turbo-frame id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden">
+  <!-- Modal content loaded here -->
+</turbo-frame>
+```
+
+### Infinite Scroll
+```erb
+<div data-controller="infinite-scroll" 
+     data-infinite-scroll-url-value="<%= contents_path %>">
+  
+  <div data-infinite-scroll-target="container">
+    <%= render @contents %>
+  </div>
+  
+  <div data-infinite-scroll-target="loading" class="hidden">
+    Loading...
+  </div>
+</div>
+```
+
+## Performance Considerations
+- **Minimize Broadcasts**: Only broadcast when necessary
+- **Specific Targets**: Use specific DOM IDs for precise updates
+- **Debounce Actions**: Prevent rapid-fire events in Stimulus controllers
+- **Cleanup Listeners**: Disconnect event listeners in controller disconnect()
+
+## File References
+- Stimulus application: [app/javascript/application.js](mdc:app/javascript/application.js)
+- Turbo configuration: [config/importmap.rb](mdc:config/importmap.rb)
+- Cable configuration: [config/cable.yml](mdc:config/cable.yml)

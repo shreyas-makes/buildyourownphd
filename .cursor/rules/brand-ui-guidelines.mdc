@@ -1,0 +1,176 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# BuildYourOwnPhD Brand & UI Guidelines
+
+## Brand Personality
+- **Empowering & Slightly Rebellious**: Democratizing elite education, making PhD-level learning accessible
+- **Modern & Approachable**: Clean, friendly, human-centered design over academic stuffiness
+- **Professional but Energetic**: Academic publishing house credibility with vibrant energy
+
+## Color Palette
+
+### Primary Colors
+- **Vibrant Orange**: `#FF5722` or similar - use sparingly as accent color only
+- **Neutral Base**: Grays and off-whites for primary layouts
+- **Deep Charcoal**: `#2D3748` for text instead of pure black
+
+### Usage Guidelines
+- Orange for CTAs, progress indicators, and key interactive elements
+- Neutral layouts with orange as strategic accent points
+- Avoid orange backgrounds - use for buttons, links, progress bars, badges
+- White/light gray backgrounds with charcoal text for readability
+
+### Speedrail Color Implementation Strategy
+- Use Tailwind `primary` and `secondary` color identifiers in config rather than hardcoded values
+- Define custom color palette in `tailwind.config.js` for brand consistency:
+```js
+colors: {
+  'primary': '#FF5722', // BuildYourOwnPhD orange
+  'secondary': '#2D3748', // Deep charcoal
+  'brand-hover': {
+    '700': '#E64A19', // Darker orange for hover states
+    '500': '#FF7043'  // Lighter orange for subtle accents
+  }
+}
+```
+
+## Typography
+
+### Primary Font: Work Sans
+- **All Body Text**: Work Sans Regular (400)
+- **Headings**: Work Sans Medium (500) or SemiBold (600)
+- **Interactive Elements**: Work Sans Medium (500)
+
+### Alternative Font Strategy (Speedrail Approach)
+Following the 80/20 branding principle from Speedrail examples:
+- **Consider monospace fonts** for distinctive technical/academic feel
+- **Configure in tailwind.config.js** for consistency:
+```js
+fontFamily: {
+  sans: ['Work Sans', 'ui-sans-serif', 'system-ui'],
+  mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas']
+}
+```
+
+### Hierarchy
+```css
+h1: Work Sans SemiBold, 2.5rem (40px)
+h2: Work Sans Medium, 2rem (32px) 
+h3: Work Sans Medium, 1.5rem (24px)
+h4: Work Sans Medium, 1.25rem (20px)
+body: Work Sans Regular, 1rem (16px)
+small: Work Sans Regular, 0.875rem (14px)
+```
+
+## Layout Principles
+
+### Clean & Structured
+- Generous white space - never feel cramped
+- Clear visual hierarchy like academic publications
+- Grid-based layouts with consistent spacing
+- Cards and containers with subtle shadows, not heavy borders
+
+### Academic Publishing Inspiration
+- Clean typography-focused layouts
+- Logical information hierarchy
+- Subtle but sophisticated spacing
+- Quality, professional feel without stuffiness
+
+### Navigation Strategies (Speedrail Examples)
+- **Standard**: Top navigation with right-aligned user menu
+- **Alternative**: Centered navigation for logged-in users
+- **Advanced**: Left sidebar with collapsible icon/text states
+- **Consider gradients** in headers and key navigation elements
+
+## Component Styling Guidelines
+
+### Buttons
+- **Primary CTA**: Orange background, white text, rounded corners
+- **Secondary**: Charcoal outline, charcoal text, transparent background
+- **Subtle Actions**: Gray text with hover states
+- **Gradient Enhancement**: Consider left-to-right gradients for premium feel
+
+### Progress & Gamification
+- Orange for XP bars, progress rings, achievement badges
+- Subtle animations and celebrations - professional but delightful
+- Clean progress indicators, not game-like graphics
+
+### Cards & Content Areas
+- Light gray/white backgrounds
+- Subtle drop shadows (`shadow-sm` in Tailwind)
+- Rounded corners (8px standard)
+- Orange accent borders for active/selected states
+
+### Forms & Enhanced Elements
+- **Use Flowbite components** for enhanced form elements (already included in Speedrail)
+- **Custom selects** over native HTML selects for better UX
+- **Tailwind UI patterns** for advanced customization needs
+- Orange focus states and validation feedback
+
+### Learning Interface
+- Clean, distraction-free reading experience
+- Orange for active chunk/section indicators
+- Neutral backgrounds with excellent contrast
+- Audio controls with orange play/pause states
+
+## Interaction Design
+
+### Hover States
+- Subtle orange accents on interactive elements
+- Smooth transitions (200-300ms)
+- Clear visual feedback without being heavy-handed
+- **Icon to text transitions** for sidebar/compact navigation
+
+### Forms
+- Clean, minimal form styling
+- Orange focus states on inputs
+- Helpful validation messages in orange
+- Professional but friendly error states
+
+## Voice & Tone in UI
+
+### Copy Style
+- **Empowering**: "Build your expertise" not "Learn about topics"
+- **Accessible**: Plain language over academic jargon
+- **Confident**: "Master complex topics" not "Try to understand"
+- **Supportive**: "Your learning journey" not "Course completion"
+
+### Microcopy Examples
+- "Start learning" instead of "Begin course"
+- "Add content" instead of "Upload materials" 
+- "Your progress" instead of "Course status"
+- "Unlock next level" instead of "Advance to module 2"
+
+## Speedrail-Specific Implementation
+
+### 80/20 Branding Approach
+Focus on these three elements for maximum visual impact:
+1. **Fonts**: Custom font choices in tailwind.config.js
+2. **Colors**: Primary/secondary color system in Tailwind config
+3. **Navigation**: Strategic positioning and interactive states
+
+### Available Component Libraries
+- **Flowbite**: Enhanced form elements, modals, dropdowns (included by default)
+- **Tailwind UI**: Premium component patterns (add if needed)
+- **Native HTML**: Enhanced with CSS for performance-critical elements
+
+## Responsive Design
+- Mobile-first approach
+- Touch-friendly orange accent elements
+- Readable typography at all screen sizes
+- Consistent spacing system across devices
+
+## Implementation Notes
+- **Use Tailwind config** for brand colors rather than inline styles
+- **Leverage Speedrail defaults**: Flowbite + Tailwind are pre-configured
+- Work Sans available via Google Fonts or local hosting
+- Maintain accessibility contrast ratios with orange accents
+
+## File References
+- Tailwind config: [tailwind.config.js](mdc:tailwind.config.js)
+- Main stylesheet: [app/assets/stylesheets/application.tailwind.css](mdc:app/assets/stylesheets/application.tailwind.css)
+- Layout templates: [app/views/layouts/application.html.erb](mdc:app/views/layouts/application.html.erb)
+- Speedrail examples: [rails-documentation/speedrail-docs.wiki/Examples.md](mdc:rails-documentation/speedrail-docs.wiki/Examples.md)

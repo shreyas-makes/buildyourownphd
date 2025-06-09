@@ -1,0 +1,198 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# AI Services Integration (Manual Apply)
+
+## AI Service Architecture
+
+### Service Object Pattern
+All AI integrations are encapsulated in service objects located in `app/services/ai/`:
+
+```
+app/services/ai/
+├── chunker.rb      # OpenAI content segmentation
+├── tts.rb          # ElevenLabs text-to-speech
+└── quiz_generator.rb # OpenAI quiz creation
+```
+
+### OpenAI Integration ([app/services/ai/chunker.rb](mdc:app/services/ai/chunker.rb))
+```ruby
+class Ai::Chunker
+  def initialize(client: OpenAI::Client.new)
+    @client = client
+  end
+
+  def segment(text)
+    prompt = build_chunking_prompt(text)
+    response = @client.chat(
+      parameters: {
+        model: "gpt-4-turbo-preview",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" }
+      }
+    )
+    JSON.parse(response.dig("choices", 0, "message", "content"))["chunks"]
+  rescue StandardError => e
+    Rails.logger.error "OpenAI API error: #{e.message}"
+    []
+  end
+end
+```
+
+### ElevenLabs TTS ([app/services/ai/tts.rb](mdc:app/services/ai/tts.rb))
+```ruby
+class Ai::Tts
+  def initialize(client: Elevenlabs::Client.new(api_key: Rails.application.credentials.elevenlabs_api_key))
+    @client = client
+  end
+
+  def generate(text, voice_id: "21m00Tcm4TlvDq8ikWAM")
+    @client.text_to_speech.stream(voice_id: voice_id, text: text)
+  rescue StandardError => e
+    Rails.logger.error "ElevenLabs API error: #{e.message}"
+    nil
+  end
+end
+```
+
+### Background Job Integration (Delayed Job)
+AI services are called from background jobs using Delayed Job (Speedrail default):
+
+```ruby
+# app/jobs/content_processing_job.rb
+class ContentProcessingJob
+  def perform(content_id)
+    content = Content.find(content_id)
+    content.update!(status: 'processing')
+
+    # Get text content
+    text = extract_text_for(content)
+    
+    # Process with AI
+    chunks = Ai::Chunker.new.segment(text)
+    
+    # Save chunks and enqueue TTS jobs
+    save_chunks_and_enqueue_tts(content, chunks)
+    
+    content.update!(status: 'ready')
+  rescue StandardError => e
+    content.update!(status: 'error', error_message: e.message)
+    raise e
+  end
+
+  private
+
+  def extract_text_for(content)
+    if content.content_type == 'URL'
+      UrlContentExtractor.extract(content.raw_content)
+    else
+      content.raw_content
+    end
+  end
+
+  def save_chunks_and_enqueue_tts(content, chunks)
+    saved_chunks = []
+    Content.transaction do
+      chunks.each_with_index do |chunk_text, index|
+        saved_chunks << content.content_chunks.create!(
+          text: chunk_text, 
+          chunk_number: index + 1
+        )
+      end
+    end
+
+    # Enqueue TTS jobs using Delayed Job
+    saved_chunks.each do |chunk|
+      TtsGenerationJob.delay.perform(chunk.id)
+    end
+  end
+end
+```
+
+### Enqueueing Jobs (Delayed Job Pattern)
+```ruby
+# In controllers - enqueue background processing
+ContentProcessingJob.delay.perform(content.id)
+
+# In services - chain additional processing
+TtsGenerationJob.delay.perform(chunk_id)
+
+# With priority (optional)
+ContentProcessingJob.delay(priority: 1).perform(content.id)
+```
+
+### TTS Generation Job
+```ruby
+# app/jobs/tts_generation_job.rb
+class TtsGenerationJob
+  def perform(chunk_id)
+    chunk = ContentChunk.find(chunk_id)
+
+    # Generate audio stream
+    audio_stream = Ai::Tts.new.generate(chunk.text)
+    return if audio_stream.nil?
+
+    # Attach using Active Storage
+    chunk.audio.attach(
+      io: StringIO.new(audio_stream),
+      filename: "#{chunk.id}.mp3",
+      content_type: "audio/mpeg"
+    )
+  rescue StandardError => e
+    Rails.logger.error "TTS generation failed for chunk #{chunk_id}: #{e.message}"
+    raise e
+  end
+end
+```
+
+### Credentials Management
+API keys stored in Rails encrypted credentials:
+```bash
+rails credentials:edit
+```
+
+```yaml
+openai_api_key: your_openai_key
+elevenlabs_api_key: your_elevenlabs_key
+```
+
+### Error Handling Patterns
+- Always rescue StandardError in service objects
+- Log errors with Rails.logger.error
+- Return nil or empty arrays on failure
+- Let Delayed Job handle retry logic automatically
+
+### Testing AI Services (RSpec)
+Mock external APIs in tests using Speedrail's RSpec setup:
+```ruby
+# spec/services/ai/chunker_spec.rb
+RSpec.describe Ai::Chunker do
+  it "segments text into chunks" do
+    allow_any_instance_of(OpenAI::Client).to receive(:chat)
+      .and_return(mock_openai_response)
+    
+    chunks = described_class.new.segment("Sample text")
+    expect(chunks).to be_an(Array)
+  end
+end
+
+# spec/jobs/content_processing_job_spec.rb  
+RSpec.describe ContentProcessingJob do
+  it "processes content and creates chunks" do
+    content = create(:content)
+    
+    expect {
+      ContentProcessingJob.new.perform(content.id)
+    }.to change { content.content_chunks.count }
+  end
+end
+```
+
+## Content Processing Pipeline
+1. **Content Submission** → [app/controllers/contents_controller.rb](mdc:app/controllers/contents_controller.rb)
+2. **Background Processing** → [app/jobs/content_processing_job.rb](mdc:app/jobs/content_processing_job.rb) via Delayed Job
+3. **AI Chunking** → [app/services/ai/chunker.rb](mdc:app/services/ai/chunker.rb)
+4. **TTS Generation** → [app/jobs/tts_generation_job.rb](mdc:app/jobs/tts_generation_job.rb) via Delayed Job
+5. **Audio Storage** → Active Storage + [app/models/content_chunk.rb](mdc:app/models/content_chunk.rb)

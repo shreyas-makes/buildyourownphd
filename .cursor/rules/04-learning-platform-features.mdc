@@ -1,0 +1,315 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Learning Platform Features (Manual Apply)
+
+## BuildYourOwnPhD Platform Architecture
+
+### Core Learning Features
+This platform implements evidence-based learning techniques:
+
+- **Dual Coding Theory**: Visual + Auditory learning channels
+- **Intelligent Chunking**: AI-powered content segmentation for optimal cognitive load
+- **Spaced Repetition**: Memory retention through scientifically-timed reviews
+- **Gamification**: XP, achievements, and streaks to maintain motivation
+- **Micro-Learning**: Bite-sized content for sustainable progress
+
+### Content Processing Workflow
+
+#### 1. Content Submission
+```ruby
+# app/controllers/contents_controller.rb
+def create
+  @content = current_user.contents.build(content_params)
+  if @content.save
+    ContentProcessingJob.delay.perform(@content.id)
+    redirect_to dashboard_path, notice: "Content submitted for processing"
+  else
+    render 'dashboard/index', status: :unprocessable_entity
+  end
+end
+```
+
+#### 2. Content Types
+- **URL Content**: Automatically extracted using UrlContentExtractor service
+- **Text Content**: Direct paste from user
+- **Status Flow**: `pending` → `processing` → `ready` → `error` (if failed)
+
+#### 3. AI Chunking Process
+```ruby
+# app/services/ai/chunker.rb
+class Ai::Chunker
+  def segment(text)
+    prompt = build_cognitive_chunking_prompt(text)
+    # Returns JSON with optimally-sized learning chunks
+    # Based on cognitive load theory and reading comprehension research
+  end
+
+  private
+
+  def build_cognitive_chunking_prompt(text)
+    <<~PROMPT
+      You are an expert in cognitive science and learning optimization.
+      Segment this content into optimal learning chunks (5-15 minutes each).
+      Consider:
+      - Natural topic boundaries
+      - Cognitive load management
+      - Information hierarchy
+      - Memory consolidation points
+      
+      Return JSON: {"chunks": ["chunk1", "chunk2", ...]}
+      
+      Content: #{text}
+    PROMPT
+  end
+end
+```
+
+### Dual Coding Implementation
+
+#### Text-to-Speech Integration
+```ruby
+# app/jobs/tts_generation_job.rb
+class TtsGenerationJob
+  def perform(chunk_id)
+    chunk = ContentChunk.find(chunk_id)
+    
+    # Generate natural-sounding audio for learning
+    audio_stream = Ai::Tts.new.generate(
+      chunk.text,
+      voice_id: "21m00Tcm4TlvDq8ikWAM", # Clear, professional voice
+      stability: 0.75,
+      similarity_boost: 0.75
+    )
+    
+    chunk.audio.attach(
+      io: StringIO.new(audio_stream),
+      filename: "chunk_#{chunk.id}.mp3",
+      content_type: "audio/mpeg"
+    )
+  end
+end
+```
+
+#### Synchronized Reading Interface
+```javascript
+// app/javascript/controllers/chunk_viewer_controller.js
+export default class extends Controller {
+  static targets = ["chunk", "audio", "progress", "playButton"]
+  
+  connect() {
+    this.currentIndex = 0
+    this.showCurrentChunk()
+  }
+  
+  togglePlayback() {
+    const audio = this.audioTarget
+    if (audio.paused) {
+      audio.play()
+      this.playButtonTarget.textContent = "Pause"
+    } else {
+      audio.pause()
+      this.playButtonTarget.textContent = "Play"
+    }
+  }
+  
+  next() {
+    if (this.currentIndex < this.chunkTargets.length - 1) {
+      this.currentIndex++
+      this.showCurrentChunk()
+      this.trackLearningProgress()
+    }
+  }
+  
+  trackLearningProgress() {
+    // Send learning analytics to backend
+    fetch('/learning_sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chunk_id: this.getCurrentChunkId(),
+        completion_time: this.getChunkCompletionTime(),
+        interaction_type: 'chunk_completed'
+      })
+    })
+  }
+}
+```
+
+### Gamification System
+
+#### Models
+```ruby
+# app/models/gamification_profile.rb
+class GamificationProfile < ApplicationRecord
+  belongs_to :user
+  has_many :achievements
+  
+  def award_xp(points, reason)
+    self.total_xp += calculate_xp_with_multipliers(points, reason)
+    self.level = calculate_level_from_xp(total_xp)
+    save!
+    
+    broadcast_xp_update
+  end
+  
+  private
+  
+  def calculate_xp_with_multipliers(base_points, reason)
+    multiplier = case reason
+    when 'streak_bonus' then 1.5
+    when 'difficult_content' then 1.25
+    when 'perfect_quiz' then 2.0
+    else 1.0
+    end
+    
+    (base_points * multiplier * streak_multiplier).round
+  end
+end
+
+# app/models/achievement.rb
+class Achievement < ApplicationRecord
+  belongs_to :gamification_profile
+  
+  ACHIEVEMENT_TYPES = {
+    'first_content' => { name: 'Getting Started', xp: 50 },
+    'week_streak' => { name: 'Week Warrior', xp: 100 },
+    'month_streak' => { name: 'Monthly Master', xp: 500 },
+    'quiz_master' => { name: 'Quiz Champion', xp: 200 },
+    'chunker_pro' => { name: 'Micro-Learning Pro', xp: 150 }
+  }.freeze
+end
+```
+
+#### XP Award Service
+```ruby
+# app/services/gamification_service.rb
+class GamificationService
+  def self.award_content_completion(user, content)
+    profile = user.gamification_profile
+    
+    base_xp = 25
+    difficulty_multiplier = calculate_difficulty(content)
+    streak_bonus = profile.current_streak > 7 ? 1.2 : 1.0
+    
+    total_xp = (base_xp * difficulty_multiplier * streak_bonus).round
+    
+    profile.award_xp(total_xp, 'content_completion')
+    check_for_achievements(profile)
+  end
+  
+  def self.award_quiz_completion(user, quiz_score)
+    profile = user.gamification_profile
+    base_xp = quiz_score >= 80 ? 30 : 15
+    
+    profile.award_xp(base_xp, quiz_score == 100 ? 'perfect_quiz' : 'quiz_completion')
+  end
+end
+```
+
+### Spaced Repetition System
+
+#### Card Generation
+```ruby
+# app/jobs/flashcard_generation_job.rb
+class FlashcardGenerationJob
+  def perform(content_chunk_id)
+    chunk = ContentChunk.find(content_chunk_id)
+    
+    # Generate Q&A pairs from chunk content
+    cards_data = Ai::QuizGenerator.new.generate_flashcards(chunk.text)
+    
+    cards_data.each do |card_data|
+      SpacedRepetitionCard.create!(
+        content_chunk: chunk,
+        user: chunk.content.user,
+        question: card_data['question'],
+        answer: card_data['answer'],
+        difficulty: 2.5, # SM-2 algorithm starting ease
+        interval: 1,     # Start with 1-day interval
+        due_at: 1.day.from_now
+      )
+    end
+  end
+end
+```
+
+#### SM-2 Algorithm Implementation
+```ruby
+# app/services/spaced_repetition_service.rb
+class SpacedRepetitionService
+  def self.update_card_after_review(card, quality)
+    # SM-2 Algorithm implementation
+    if quality >= 3
+      if card.repetitions == 0
+        card.interval = 1
+      elsif card.repetitions == 1
+        card.interval = 6
+      else
+        card.interval = (card.interval * card.ease_factor).round
+      end
+      card.repetitions += 1
+    else
+      card.repetitions = 0
+      card.interval = 1
+    end
+    
+    # Update ease factor
+    card.ease_factor = [
+      1.3,
+      card.ease_factor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
+    ].max
+    
+    card.due_at = card.interval.days.from_now
+    card.save!
+  end
+end
+```
+
+### Real-time Learning Updates
+
+#### Turbo Stream Integration
+```ruby
+# app/models/content.rb
+class Content < ApplicationRecord
+  belongs_to :user
+  has_many :content_chunks
+  
+  # Broadcast status changes to user's dashboard
+  after_update_commit :broadcast_status_update
+  
+  private
+  
+  def broadcast_status_update
+    broadcast_replace_to(
+      [user, "contents"],
+      target: dom_id(self),
+      partial: "contents/content"
+    )
+  end
+end
+```
+
+#### Dashboard Real-time Updates
+```erb
+<%# app/views/dashboard/index.html.erb %>
+<%= turbo_stream_from current_user, "contents" %>
+<%= turbo_stream_from current_user, "gamification" %>
+
+<div id="xp-display" data-controller="xp-counter">
+  Current XP: <span data-xp-counter-target="value"><%= current_user.gamification_profile.total_xp %></span>
+</div>
+
+<div id="contents-list">
+  <%= render current_user.contents.recent %>
+</div>
+```
+
+## File References
+- Content models: [app/models/content.rb](mdc:app/models/content.rb), [app/models/content_chunk.rb](mdc:app/models/content_chunk.rb)
+- Gamification: [app/models/gamification_profile.rb](mdc:app/models/gamification_profile.rb)
+- Processing jobs: [app/jobs/content_processing_job.rb](mdc:app/jobs/content_processing_job.rb)
+- Learning UI: [app/views/contents/show.html.erb](mdc:app/views/contents/show.html.erb)
+- Dashboard: [app/views/dashboard/index.html.erb](mdc:app/views/dashboard/index.html.erb)

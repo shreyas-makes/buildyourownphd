@@ -1,0 +1,267 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# UI Generation Patterns (Always Apply)
+
+## Brand Guidelines Enforcement
+**ALWAYS** reference and follow the brand guidelines in [brand-ui-guidelines.mdc](mdc:.cursor/rules/brand-ui-guidelines.mdc) when generating any UI components, views, or styling.
+
+## Speedrail Configuration Approach
+Use `tailwind.config.js` for brand consistency instead of hardcoded values:
+
+### Tailwind Config Setup
+```js
+// In tailwind.config.js
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        'primary': '#FF5722',
+        'secondary': '#2D3748',
+        'brand-hover': {
+          '700': '#E64A19',
+          '500': '#FF7043'
+        }
+      },
+      fontFamily: {
+        sans: ['Work Sans', 'ui-sans-serif', 'system-ui'],
+      }
+    }
+  }
+}
+```
+
+## Default UI Generation Rules
+
+### Color Implementation
+- **Primary Orange**: Use `bg-primary` or `text-primary` for CTAs and accents
+- **Text Colors**: Use `text-secondary` instead of `text-black`
+- **Backgrounds**: Default to `bg-white` or `bg-gray-50`
+- **Borders**: Use `border-gray-200` with `border-primary` for active states
+
+### Typography Classes (Tailwind)
+```erb
+<%# Headlines %>
+<h1 class="text-4xl font-semibold text-secondary">
+<h2 class="text-3xl font-medium text-secondary">
+<h3 class="text-2xl font-medium text-secondary">
+
+<%# Body text %>
+<p class="text-base text-gray-700">
+<span class="text-sm text-gray-600">
+```
+
+## Enhanced Component Patterns (Speedrail)
+
+### Primary Button with Gradient Option
+```erb
+<%# Standard primary button %>
+<%= link_to "Start Learning", path, 
+    class: "bg-primary hover:bg-brand-hover-700 text-white font-medium px-6 py-3 rounded-lg transition-colors duration-200" %>
+
+<%# Premium gradient button %>
+<%= link_to "Unlock Premium", path,
+    class: "bg-gradient-to-r from-primary to-brand-hover-500 hover:from-brand-hover-700 hover:to-primary text-white font-medium px-6 py-3 rounded-lg transition-all duration-200" %>
+```
+
+### Enhanced Form Elements (Flowbite)
+```erb
+<%# Enhanced select instead of native HTML %>
+<div data-controller="flowbite-select" class="relative">
+  <%= f.select :category, options_for_select([['URL', 'url'], ['Text', 'text']]), 
+      { prompt: 'Choose content type' },
+      { class: "bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5" } %>
+</div>
+
+<%# Standard form input with brand colors %>
+<%= f.text_field :field_name, 
+    class: "w-full px-4 py-3 border border-gray-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-orange-200 focus:outline-none transition-all duration-200" %>
+```
+
+### Navigation Patterns
+
+#### Standard Top Navigation
+```erb
+<nav class="bg-white shadow-sm border-b border-gray-200">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between items-center h-16">
+      <!-- Logo left -->
+      <div class="flex items-center">
+        <%= link_to root_path, class: "text-xl font-semibold text-secondary" do %>
+          BuildYourOwnPhD
+        <% end %>
+      </div>
+      
+      <!-- Navigation right -->
+      <div class="flex items-center space-x-4">
+        <!-- Navigation items -->
+      </div>
+    </div>
+  </div>
+</nav>
+```
+
+#### Sidebar Navigation with Hover States
+```erb
+<div class="flex h-screen bg-gray-50">
+  <!-- Sidebar -->
+  <div class="w-64 bg-white shadow-sm border-r border-gray-200" data-controller="sidebar">
+    <div class="p-4">
+      <h2 class="text-lg font-semibold text-secondary mb-4">Dashboard</h2>
+      
+      <!-- Navigation items with icon-to-text transitions -->
+      <nav class="space-y-2">
+        <%= link_to dashboard_path, 
+            class: "flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:text-primary hover:bg-orange-50 rounded-lg transition-all duration-200 group" do %>
+          <svg class="w-5 h-5 mr-3 group-hover:text-primary"><!-- icon --></svg>
+          <span class="group-hover:font-semibold">Dashboard</span>
+        <% end %>
+      </nav>
+    </div>
+  </div>
+  
+  <!-- Main content -->
+  <div class="flex-1 overflow-auto">
+    <!-- Page content -->
+  </div>
+</div>
+```
+
+### Card Components with Enhanced Styling
+```erb
+<%# Standard card %>
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
+  <!-- Card content -->
+</div>
+
+<%# Premium card with gradient header %>
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+  <div class="bg-gradient-to-r from-primary to-brand-hover-500 px-6 py-4">
+    <h3 class="text-lg font-medium text-white">Premium Feature</h3>
+  </div>
+  <div class="p-6">
+    <!-- Card content -->
+  </div>
+</div>
+```
+
+### Progress Indicators with Animations
+```erb
+<%# Animated progress bar %>
+<div class="w-full bg-gray-200 rounded-full h-2">
+  <div class="bg-gradient-to-r from-primary to-brand-hover-500 h-2 rounded-full transition-all duration-500 ease-out" 
+       style="width: <%= progress_percentage %>%"></div>
+</div>
+
+<%# Progress ring (using CSS/SVG) %>
+<div class="relative w-16 h-16">
+  <svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 36 36">
+    <path class="text-gray-200" stroke="currentColor" stroke-width="3" fill="transparent"
+          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+    <path class="text-primary" stroke="currentColor" stroke-width="3" fill="transparent"
+          stroke-dasharray="<%= progress_percentage %>, 100"
+          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+  </svg>
+  <div class="absolute inset-0 flex items-center justify-center">
+    <span class="text-sm font-medium text-secondary"><%= progress_percentage %>%</span>
+  </div>
+</div>
+```
+
+## Layout Patterns
+
+### Page Container with Brand Consistency
+```erb
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <!-- Page content -->
+</div>
+```
+
+### Section with Gradient Headers
+```erb
+<section class="py-12 lg:py-16">
+  <div class="bg-gradient-to-r from-primary to-brand-hover-500 text-white px-6 py-4 rounded-t-lg">
+    <h2 class="text-2xl font-medium">Your Learning Progress</h2>
+  </div>
+  <div class="bg-white border border-gray-200 border-t-0 rounded-b-lg p-6">
+    <!-- Section content -->
+  </div>
+</section>
+```
+
+### Learning Interface Patterns
+
+#### Active Learning Chunk with Enhanced Styling
+```erb
+<div class="bg-white border-l-4 border-primary rounded-lg shadow-sm p-6 relative">
+  <!-- Status indicator -->
+  <div class="absolute top-4 right-4">
+    <div class="w-3 h-3 bg-primary rounded-full animate-pulse"></div>
+  </div>
+  
+  <!-- Current chunk content -->
+  <div class="pr-8">
+    <!-- Content here -->
+  </div>
+</div>
+```
+
+#### Gamification Elements
+```erb
+<%# XP Display with gradient %>
+<div class="flex items-center space-x-3 bg-gradient-to-r from-primary to-brand-hover-500 rounded-lg px-4 py-2">
+  <div class="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+    <span class="text-white text-sm font-medium">XP</span>
+  </div>
+  <span class="text-white font-medium"><%= user.total_xp %> Points</span>
+</div>
+
+<%# Achievement Badge with enhanced styling %>
+<div class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-orange-100 to-orange-50 text-primary border border-orange-200">
+  <svg class="w-4 h-4 mr-2"><!-- achievement icon --></svg>
+  <%= achievement.name %>
+</div>
+```
+
+### Modal and Overlay Patterns
+```erb
+<%# Modal with gradient header %>
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" data-controller="modal">
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden">
+    <div class="bg-gradient-to-r from-primary to-brand-hover-500 px-6 py-4">
+      <h3 class="text-lg font-medium text-white">Unlock Premium</h3>
+    </div>
+    <div class="p-6">
+      <!-- Modal content -->
+    </div>
+  </div>
+</div>
+```
+
+## Voice & Tone in Generated Copy
+- Use empowering language: "Build", "Master", "Unlock"
+- Avoid academic jargon: prefer "content" over "materials"
+- Be supportive: "Your journey" not "Course work"
+- Stay confident but accessible
+
+## Responsive Considerations
+- Always include responsive classes: `sm:`, `md:`, `lg:`
+- Mobile-first approach
+- Touch-friendly button sizes (min 44px height)
+- Readable typography at all screen sizes
+- Collapsible sidebar navigation for mobile
+
+## Speedrail Best Practices
+- **Use Flowbite components** for enhanced form elements
+- **Define brand colors in Tailwind config** using primary/secondary system
+- **Consider gradients** for premium features and key UI elements
+- **Implement smooth transitions** for professional feel
+- **Focus on navigation UX** - positioning and interactive states matter
+
+## File References
+- Brand guidelines: [brand-ui-guidelines.mdc](mdc:.cursor/rules/brand-ui-guidelines.mdc)
+- Tailwind config: [tailwind.config.js](mdc:tailwind.config.js)
+- Application layout: [app/views/layouts/application.html.erb](mdc:app/views/layouts/application.html.erb)
+- Speedrail examples: [rails-documentation/speedrail-docs.wiki/Examples.md](mdc:rails-documentation/speedrail-docs.wiki/Examples.md)

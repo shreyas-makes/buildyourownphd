@@ -1,0 +1,36 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Frontend Development Reminder (Always Apply)
+
+## Before Creating Any UI Components:
+1. **Check Brand Guidelines**: Always reference [brand-ui-guidelines.mdc](mdc:.cursor/rules/brand-ui-guidelines.mdc)
+2. **Use Standard Patterns**: Follow the component patterns in [ui-generation-patterns.mdc](mdc:.cursor/rules/ui-generation-patterns.mdc)
+3. **Orange as Accent Only**: Never use orange as a dominant color - only for CTAs, progress, and active states
+4. **Work Sans Typography**: Use consistent Work Sans font weights and sizes
+5. **Empowering Copy**: Use confident, accessible language that avoids academic jargon
+
+## Speedrail-Specific Reminders:
+6. **Leverage Flowbite**: Use enhanced form elements and components (already included)
+7. **Tailwind Config First**: Define colors and fonts in config rather than inline styles
+8. **80/20 Branding**: Focus on fonts, colors, and navigation for maximum impact
+9. **Component Libraries**: Flowbite and Tailwind UI are available - don't reinvent
+
+## Quick Checklist for UI Generation:
+- [ ] Orange used sparingly for accents/CTAs only
+- [ ] Clean neutral layouts with generous white space
+- [ ] Work Sans typography with proper hierarchy
+- [ ] Empowering, accessible copy tone
+- [ ] Mobile-responsive with touch-friendly elements
+- [ ] Professional but approachable feel
+- [ ] Flowbite components used for enhanced form elements
+- [ ] Colors defined in tailwind.config.js using primary/secondary system
+- [ ] Consider gradients for premium feel in headers/buttons
+
+## Common Speedrail Patterns to Remember:
+- **Enhanced Selects**: Use Flowbite custom selects instead of native HTML
+- **Navigation Flexibility**: Top-right, centered, or sidebar layouts all valid
+- **Gradient Accents**: Consider subtle gradients in key UI elements
+- **Icon Transitions**: Collapsible navigation with icon-to-text hover states
