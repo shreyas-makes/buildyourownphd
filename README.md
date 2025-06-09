@@ -24,8 +24,6 @@ Transform any topic into your personalized "PhD" with AI-powered content process
 
 This platform provides the tools to curate content, process it with AI, engage with it through text-to-speech and active recall, and track your progress—turning the internet into your university.
 
-## The Philosophy
-
 Traditional education can be rigid and expensive. A "self-learned PhD" isn't about a formal title; it's about the pursuit of deep knowledge and mastery on your own terms. It's for the intellectually curious, the career-changers, and anyone who believes in the power of self-driven education. This project gives you the tools to structure that journey.
 
 ## ✨ Features

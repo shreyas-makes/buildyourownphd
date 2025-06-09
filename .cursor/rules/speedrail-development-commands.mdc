@@ -1,0 +1,59 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Speedrail Development Commands (Always Apply)
+
+## Running the Application
+
+### Use `bin/dev` NOT `rails server`
+**IMPORTANT**: Speedrail applications should ALWAYS be started with `bin/dev`, never with `rails server` directly.
+
+The `bin/dev` command uses [Procfile.dev](mdc:Procfile.dev) to run multiple processes simultaneously:
+- Web server (`bin/rails server -p 3000`)
+- Active Admin CSS watcher (`bin/rails active_admin:watch`)
+- Redis server (`redis-server --port 6379`)
+- Background job worker (`bundle exec rake delayed:work`)
+
+### Why `bin/dev` is Required
+1. **Active Admin Styling**: The `active_admin:watch` process is required for Active Admin CSS to work properly
+2. **Background Jobs**: Delayed Job worker processes background tasks (AI processing, email sending, etc.)
+3. **Redis**: Required for Action Cable and real-time features
+4. **Development Consistency**: Matches the multi-process production environment
+
+### Development Commands
+```bash
+# Start the application (CORRECT)
+bin/dev
+
+# Start Rails console
+rails c
+
+# Run tests
+bundle exec rspec
+
+# Run migrations
+rails db:migrate
+
+# Generate admin resource
+rails g active_admin:resource ModelName
+
+# Generate admin page
+rails g active_admin:page PageName
+```
+
+### Common Mistakes to Avoid
+- ❌ `rails server` - Missing background processes
+- ❌ `rails s` - Same issue as above
+- ❌ `bundle exec rails server` - Still missing other processes
+
+### Documentation Reference
+Per [Getting Started guide](mdc:rails-documentation/speedrail-docs.wiki/Getting-Started.md): "once your application is running with `bin/dev`, you should be able to visit `localhost:3000` in your browser and register, log in, etc."
+
+### Troubleshooting
+If `bin/dev` fails:
+1. Ensure Redis is installed: `brew install redis` (macOS)
+2. Check that all gems are installed: `bundle install`
+3. Verify database is set up: `rails db:create db:migrate`
+4. If port 3000 is busy, kill existing processes: `lsof -ti:3000 | xargs kill -9`

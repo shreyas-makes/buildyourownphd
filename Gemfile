@@ -55,6 +55,7 @@ group :test do
   gem 'capybara'
   gem 'factory_bot_rails'
   gem 'faker'
+  gem 'mock_redis'
   gem 'rspec-rails', '7.0.1'
   gem 'selenium-webdriver'
   gem 'shoulda-callback-matchers'

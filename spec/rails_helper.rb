@@ -2,6 +2,7 @@
 
 require 'simplecov'
 require 'simplecov-tailwindcss'
+require 'mock_redis'
 
 SimpleCov.start 'rails' do
   add_filter 'app/admin'
@@ -58,6 +59,10 @@ end
 RSpec.configure do |config|
   # helper to leverage Devise in Request specs, just invoke sign_in(user)
   config.include Devise::Test::IntegrationHelpers, type: :request
+  # helper to leverage Devise in System specs
+  config.include Devise::Test::IntegrationHelpers, type: :system
+  # include custom Devise helpers for system tests
+  config.include DeviseHelpers, type: :system
 
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
   config.fixture_path = "#{::Rails.root}/spec/fixtures"
@@ -77,6 +82,16 @@ RSpec.configure do |config|
     allow(Rails.application.credentials).to receive(:base_url).and_return('https://speedrail.com')
     allow(Rails.application.credentials).to receive(:stripe).and_return(OpenStruct.new(api_key: 'sk_asdf', publishable_key: 'pk_asdf', product_price_id: 'pi_asdf'))
     allow_any_instance_of(BillingPortalController).to receive(:create_checkout).and_return({ client_secret: 'qwerty' }.to_json)
+  end
+  
+  # Helper for A/B testing in views
+  config.before(:each, type: :system) do
+    # Define ab_test method for ActionView in system tests
+    ActionView::Base.class_eval do
+      def ab_test(*args)
+        'Start Free'
+      end
+    end
   end
 
   # You can uncomment this line to turn off ActiveRecord support entirely.
